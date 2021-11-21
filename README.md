@@ -165,7 +165,7 @@ The `Red` service receives requests from valid tokens without group1 and with su
           number: 80          
 ```
 
-Apply the yaml for the gateway and the virtual service be issuing the command below 
+Apply the yaml for the gateway and the virtual service by issuing the command below 
 ```
 kubectl apply -f -<<EOF
 apiVersion: networking.istio.io/v1alpha3
