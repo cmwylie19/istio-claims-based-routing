@@ -1,5 +1,5 @@
 # Claims Based Routing Istio Example
-_You must use Istio 1.12 for this demo._
+_You must use Istio 1.12 for this demo. if you do not, you will get `NR` no route errors in the access log._
 - [Setup MiniKube](#setup-minikube)
 - [Install Istio](#install-istio)
 - [Deploy Demo](#deploy-demo)
