@@ -1,5 +1,5 @@
 # Claims Based Routing Istio Example
-_I am using Istio 1.12 for this demo._
+_You must use Istio 1.12 for this demo._
 - [Setup MiniKube](#setup-minikube)
 - [Install Istio](#install-istio)
 - [Deploy Demo](#deploy-demo)
@@ -25,17 +25,73 @@ We will have a Red service and a Blue service. The Red Service serves an html pa
 # Label namespace for sidecar injection
 kubectl label namespace default istio-injection=enabled
 
+# Create blue.html
+echo "<html><body>BLUE</body></html>" > blue.html
+
+# Create red.html
+echo "<html><body>RED</body></html>" > red.html
+
 # Create a ConfigMap with index.html for Blue Pod
-kubectl create cm blue --from-file=index.html=assets/blue.html
+kubectl create cm blue --from-file=index.html=blue.html
 
 # Create a ConfigMap with index.html for Red Pod
-kubectl create cm red --from-file=index.html=assets/red.html
+kubectl create cm red --from-file=index.html=red.html
 
 # Create the  Blue Pod
-kubectl apply -f blue-pod.yaml
+kubectl apply -f -<<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: blue
+  name: blue
+spec:
+  containers:
+  - image: nginx
+    name: blue
+    volumeMounts:
+      - name: index
+        mountPath: /usr/share/nginx/html
+    ports:
+    - containerPort: 80
+    resources: {}
+  volumes:
+   - name: index
+     configMap:
+       name: blue
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+EOF
 
 # Create the  Red Pod
-kubectl apply -f red-pod.yaml
+kubectl apply -f -<<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: red
+  name: red
+spec:
+  containers:
+  - image: nginx
+    name: red
+    volumeMounts:
+      - name: index
+        mountPath: /usr/share/nginx/html
+    ports:
+    - containerPort: 80
+    resources: {}
+  volumes:
+   - name: index
+     configMap:
+       name: red
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+EOF
 
 # Expose the Blue Pod with a service
 kubectl expose pod/blue --port=80 
@@ -111,7 +167,51 @@ The `Red` service receives requests from valid tokens without group1 and with su
 
 Apply the yaml for the gateway and the virtual service be issuing the command below 
 ```
-kubectl apply -f gateway.yaml
+kubectl apply -f -<<EOF
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: default-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - default-gateway
+  http:
+  - match:
+     - headers:
+        "@request.auth.claims.groups":
+          exact: group1
+    route:
+    - destination:
+        host: blue
+        port:
+          number: 80
+  - match:
+     - headers:
+        "@request.auth.claims.sub":
+          exact: testing@secure.istio.io
+    route:
+    - destination:
+        host: red
+        port:
+          number: 80          
+EOF
 ```
 
 ## Test
